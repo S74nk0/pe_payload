@@ -1,0 +1,48 @@
+
+.idea/workspace.xml
+out/
+*.log
+assets.go
+
+.DS_Store
+/node_modules
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# executables
+*.exe
+
+# Editor directories and files
+.idea
+*.iml
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# js stuff
+/js/app/node_modules/
+/js/app/dist/
+/js/app/package-lock.json
+
+# tmp zip files
+*.zip
+
+# test coverage report
+coverSub.out
+
+# exclude Windows .syso files and version info strings as well
+*.syso
+versioninfo.json
+
+# bins we build the files
+bins
+_files_to_pack
