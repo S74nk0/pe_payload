@@ -1,4 +1,9 @@
-pe refs:
+
+# [Project structure](https://github.com/golang-standards/project-layout)
+More info [here](https://github.com/golang-standards/project-layout)
+
+
+# PE injection and headers refs:
   - https://golang.org/pkg/debug/pe/#File.Section
   - https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files
   - https://resources.infosecinstitute.com/presenting-the-pe-header/#gref

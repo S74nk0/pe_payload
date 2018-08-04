@@ -1,24 +1,16 @@
-package pe_payload
+package payload
 
 import (
 	"fmt"
 )
 
 // payload header starts with and data is from there and after
-var APPEND_HEADER = []byte("APPENDNH01\000\000")
+var OLD_SERVER_APPEND_HEADER = []byte("NHPAY:")
 
-func paddedPayload(payload []byte) []byte {
-	rem := len(payload) % 4
-	if rem == 0 {
-		return payload
-	}
-	padding := 4 - rem
-	ret := make([]byte, len(payload)+padding)
-	for i := 0; i < len(payload); i++ {
-		ret[i] = payload[i]
-	}
-	return ret
-}
+var DEFAULT_NO_ENCODING = []byte("APPENDNH01\000\000")
+
+// TODO temp default one
+var APPEND_HEADER = OLD_SERVER_APPEND_HEADER
 
 func ReadPayload(data []byte) (payload []byte, err error) {
 	var headerIndexCheck int

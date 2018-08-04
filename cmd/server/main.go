@@ -27,8 +27,11 @@ func main() {
 
 		fmt.Println(r.Header.Get("Content-Type"))
 
+		// TODO get payload from URL or something
+		payload := []byte("some data n1dfd")
+
 		dispositionVal := fmt.Sprintf("attachment; filename=%s", "dl.exe")
-		fileSizeVal := strconv.Itoa(appender.FileSize())
+		fileSizeVal := strconv.Itoa(appender.FileSize(len(payload)))
 		//copy the relevant headers. If you want to preserve the downloaded file name, extract it with go's url parser.
 		w.Header().Set("Content-Disposition", dispositionVal)
 		// w.Header().Set("Content-Type", "application/octet-stream")
@@ -39,7 +42,7 @@ func main() {
 		// application/vnd.microsoft.portable-executable
 
 		// stream most from memory and append new data
-		_ = appender.Append(w, []byte("some data n1dfd"))
+		_ = appender.Append(w, payload)
 	})
 	err = http.ListenAndServe(":8000", nil)
 
