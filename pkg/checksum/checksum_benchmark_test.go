@@ -8,8 +8,6 @@ import (
 
 func BenchmarkPartialChecksumFunctions(b *testing.B) {
 	const maxSize = 60 * 1000000
-	// dataLen := 100 * 4
-
 	// step by 10
 	for dataLen := (100 * 4); dataLen < maxSize; dataLen *= 10 {
 		data := make([]byte, dataLen)

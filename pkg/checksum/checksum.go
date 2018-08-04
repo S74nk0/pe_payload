@@ -5,58 +5,15 @@ import (
 	"math"
 )
 
+// zero-allocation (means very fast) PE - Checksum functions, operations helper structs, etc.
+
 var top = uint64(math.Pow(2, 32))
-
-// func partialChecksum(checksum uint64, data []byte) (ret uint64, err error) {
-// 	// pad data otherwise error
-// 	if len(data)%4 != 0 {
-// 		err = fmt.Errorf("error partial checksum data has remainder %d (%d=%d mod 4), remainder must be 0", len(data)%4, len(data)%4, len(data))
-// 		return
-// 	}
-
-// 	// checksum body calc
-// 	{
-// 		iters := len(data) / 4
-// 		for i := 0; i < iters; i++ {
-// 			dword := binary.LittleEndian.Uint32(data[i*4:])
-// 			checksum = (checksum & 0xffffffff) + uint64(dword) + (checksum >> 32)
-// 			if checksum > top {
-// 				checksum = (checksum & 0xffffffff) + (checksum >> 32)
-// 			}
-// 		}
-// 	}
-
-// 	// ret prepare
-// 	ret = checksum
-// 	return
-// }
-
-// func finalizeChecksum(initChecksum uint64, fileSize int) (ret uint32) {
-// 	var checksum = uint64(initChecksum)
-
-// 	checksum = (checksum & 0xffff) + (checksum >> 16)
-// 	checksum = (checksum) + (checksum >> 16)
-// 	checksum = checksum & 0xffff
-// 	checksum += uint64(fileSize)
-
-// 	// ret prepare
-// 	ret = uint32(checksum)
-// 	return
-// }
-
-func CalcCheckSum(data []byte, PECheckSumIndex uint32) uint32 {
-	c := PeChecksum{}
-	c.PartialChecksum(data[:PECheckSumIndex])
-	// skip PECheckSumIndex dword
-	c.PartialChecksum(data[PECheckSumIndex+4:])
-	return c.FinalizeChecksum(len(data))
-}
 
 const checksumBufferSize = 4
 
 type peChecksumPart struct {
 	rem uint8
-	// array used because it behaves as value
+	// array used because it behaves as value and this helps us with zero allocations as well
 	b [checksumBufferSize]byte
 }
 
@@ -142,7 +99,7 @@ func (p *PeChecksum) partialChecksum_02(data []byte) {
 
 // linearly calc checksum. order matters this is not comutative
 func (p *PeChecksum) PartialChecksum(data []byte) {
-	// TODO test performance probably 02 is slower
+	// benchmarks show that 'partialChecksum_01' is 20-50% FASTER than 'partialChecksum_02'
 	p.partialChecksum_01(data)
 	// p.partialChecksum_02(data)
 }
@@ -168,15 +125,15 @@ func (p *PeChecksum) Reset() {
 }
 
 func (p *PeChecksum) DeepCopy() (ret PeChecksum) {
-	// this will copy
+	// this will deep copy
 	ret = *p
-	// // fill data
-	// ret.checksum = p.checksum
-	// ret.rem = p.rem
-	// ret.b[0] = p.b[0]
-	// ret.b[1] = p.b[1]
-	// ret.b[2] = p.b[2]
-	// ret.b[3] = p.b[3]
-
 	return
+}
+
+func CalcCheckSum(data []byte, PECheckSumIndex uint32) uint32 {
+	c := PeChecksum{}
+	c.PartialChecksum(data[:PECheckSumIndex])
+	// skip PECheckSumIndex dword
+	c.PartialChecksum(data[PECheckSumIndex+4:])
+	return c.FinalizeChecksum(len(data))
 }
