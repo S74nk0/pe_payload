@@ -28,15 +28,15 @@ func (p *peDataAppenderDynamic) prepare(data, payloadHeader []byte, usePrePaddin
 
 func (p *peDataAppenderDynamic) Append(w io.Writer, payload []byte) (err error) {
 	if uint32(len(payload)) > maxDynamicSize {
-		err = fmt.Errorf("cannot append paylod with size %d, MAX size is ", len(payload), maxDynamicSize)
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), maxDynamicSize)
 		return
 	}
 
 	payloadMsgSize := calcPayloadMsgSize(uint32(len(payload)), p.payloadMessageStep)
-	fmt.Println("payloadMsgSize: ", payloadMsgSize)
+	// fmt.Println("payloadMsgSize: ", payloadMsgSize)
 	updateTableAndPreCalcChecksum := p.payloadMsgSize != payloadMsgSize
 	if updateTableAndPreCalcChecksum {
-		fmt.Println("TABLE AND CHECKSUM UPDATE")
+		// fmt.Println("TABLE AND CHECKSUM UPDATE")
 		// from here on we do specific calls depending on the specific appender
 		p.calcPayloadMsgPaddings(payloadMsgSize)
 		p.updateCertificationTable()

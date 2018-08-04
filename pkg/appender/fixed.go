@@ -33,7 +33,7 @@ func (p *peDataAppenderFixed) prepare(data, payloadHeader []byte, payloadMsgSize
 
 func (p *peDataAppenderFixed) Append(w io.Writer, payload []byte) (err error) {
 	if uint32(len(payload)) > p.payloadMsgSize {
-		err = fmt.Errorf("cannot append paylod with size %d, MAX size is ", len(payload), p.payloadMsgSize)
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), p.payloadMsgSize)
 		return
 	}
 

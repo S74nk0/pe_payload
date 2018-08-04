@@ -43,10 +43,10 @@ func (p *peDataAppenderDynamicBuckets) getChecksumLazy(keyPayloadMsgSize uint32)
 
 	}
 
-	fmt.Println("payloadMsgSize: ", keyPayloadMsgSize)
+	// fmt.Println("payloadMsgSize: ", keyPayloadMsgSize)
 	updateCertTable := p.payloadMsgSize != keyPayloadMsgSize
 	if updateCertTable {
-		fmt.Println("TABLE CERT UPDATE")
+		// fmt.Println("TABLE CERT UPDATE")
 		// from here on we do specific calls depending on the specific appender
 		p.calcPayloadMsgPaddings(keyPayloadMsgSize)
 		p.updateCertificationTable()
@@ -85,7 +85,7 @@ func (p *peDataAppenderDynamicBuckets) prepare(data, payloadHeader []byte, usePr
 
 func (p *peDataAppenderDynamicBuckets) Append(w io.Writer, payload []byte) (err error) {
 	if uint32(len(payload)) > maxDynamicSize {
-		err = fmt.Errorf("cannot append paylod with size %d, MAX size is ", len(payload), maxDynamicSize)
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), maxDynamicSize)
 		return
 	}
 	payloadMsgSize := calcPayloadMsgSize(uint32(len(payload)), p.payloadMessageStep)

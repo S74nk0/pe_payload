@@ -45,6 +45,7 @@ type peDataAppender struct {
 }
 
 func (p *peDataAppender) log(tag string) {
+	return
 	fmt.Println()
 	fmt.Println(tag)
 	fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
@@ -61,7 +62,7 @@ func (p *peDataAppender) log(tag string) {
 }
 
 func (p *peDataAppender) finalSize() int {
-	fmt.Printf("paddingSize %d. Len %d. payloadMsg %d \n", p.paddingSize, uint32(len(p.data)), p.payloadMsgSize)
+	// fmt.Printf("paddingSize %d. Len %d. payloadMsg %d \n", p.paddingSize, uint32(len(p.data)), p.payloadMsgSize)
 	r := p.paddingSize + uint32(len(p.data)) + p.payloadMsgSize
 	return int(r)
 }
@@ -105,7 +106,7 @@ func (p *peDataAppender) init03_prepareData(data, payloadHeader []byte, usePrePa
 	p.prePaddingSize = 0
 	if usePrePadding {
 		p.prePaddingSize = uint32(((p.originalDataLen + p.payloadHeaderSize) % 4))
-		fmt.Println("Using pre padding pre pad size = ", p.prePaddingSize)
+		// fmt.Println("Using pre padding pre pad size = ", p.prePaddingSize)
 	}
 	dataLen := p.originalDataLen + p.payloadHeaderSize + p.prePaddingSize
 	// prepare the data, this might have the intermediate pading
@@ -175,7 +176,8 @@ func (p *peDataAppender) append(w io.Writer, payload []byte, finalChecksum uint3
 
 	if finalN != p.finalSize() {
 		// TODO this is probably an error
-		fmt.Println("finalN differs from final write size (%d!=%d)", finalN, p.finalSize())
+		err = fmt.Errorf("finalN differs from final write size (%d!=%d)", finalN, p.finalSize())
+		return
 	}
 
 	return
