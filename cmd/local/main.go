@@ -33,7 +33,7 @@ func main() {
 	f.Close()
 
 	f, err = os.Create("new_golangOutDynamic.exe")
-	peAppender, err = appender.NewPEDataAppenderDynamicBuckets(vcbytes)
+	peAppender, err = appender.NewPEDataAppenderDynamic(vcbytes)
 	handleErr(err)
 	err = peAppender.Append(f, payloadData)
 	handleErr(err)

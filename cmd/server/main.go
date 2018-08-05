@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"pe_payload"
+	"pe_payload/pkg/appender"
 	"strconv"
 )
 
@@ -18,8 +18,10 @@ func main() {
 	vcbytes, err := ioutil.ReadFile("VC_redist.x64.exe")
 	// vcbytes, err := ioutil.ReadFile("VSCodeSetup-ia32-1.25.1.exe")
 	handleErr(err)
-	appender, err := pe_payload.NewPEDataAppenderFixed(vcbytes)
+	a, err := appender.NewPEDataAppenderDynamic(vcbytes)
 	handleErr(err)
+
+	fmt.Println("Appender initialized")
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.URL)
@@ -31,7 +33,7 @@ func main() {
 		payload := []byte("some data n1dfd")
 
 		dispositionVal := fmt.Sprintf("attachment; filename=%s", "dl.exe")
-		fileSizeVal := strconv.Itoa(appender.FileSize(len(payload)))
+		fileSizeVal := strconv.Itoa(a.FileSize(len(payload)))
 		//copy the relevant headers. If you want to preserve the downloaded file name, extract it with go's url parser.
 		w.Header().Set("Content-Disposition", dispositionVal)
 		// w.Header().Set("Content-Type", "application/octet-stream")
@@ -42,7 +44,10 @@ func main() {
 		// application/vnd.microsoft.portable-executable
 
 		// stream most from memory and append new data
-		_ = appender.Append(w, payload)
+		err = a.Append(w, payload)
+		if err != nil {
+			fmt.Printf("Append err: %s\n", err.Error())
+		}
 	})
 	err = http.ListenAndServe(":8000", nil)
 

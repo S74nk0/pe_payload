@@ -4,20 +4,51 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"pe_payload/pkg/checksum"
 	"pe_payload/pkg/payload"
 )
 
-// TODO
-// THIS IMPLEMENTATION IS NOT THREAD SAFE SINCE IT MUTATES state on appending
+// TODO maybe make this a variable
+// 0.5 MB should be more than enough
+const maxDynamicSize = 1000000 / 2
+
+func calcPayloadMsgSize(payloadMsgSize, payloadMessageStep uint32) uint32 {
+	mult := (payloadMsgSize / payloadMessageStep)
+	if (payloadMsgSize % payloadMessageStep) != 0 {
+		mult++
+	}
+	ret := mult * payloadMessageStep
+
+	// fmt.Printf("## (%d / %d) + %d = %d ##\n", payloadMsgSize, payloadMessageStep, payloadMessageStep, ret)
+	return ret
+}
+
+// with pre-calculated sizes
+
 type peDataAppenderDynamic struct {
 	peDataAppender
 
 	// the smaller the value it will re-init cert table offsets and re-calc init checksum
 	// this should be the power of two
 	payloadMessageStep uint32
-	// base checksum
-	checksum checksum.PeChecksum
+	buckets            map[uint32]*precalcedChecksum
+
+	preInitFirst uint32
+}
+
+// this function gets the precalculated checksum or precalculates one on the fly if it is missing and returns it
+func (p *peDataAppenderDynamic) getChecksumLazy(keyPayloadMsgSize uint32) precalcedChecksum {
+	precalcedChecksum, exists := p.buckets[keyPayloadMsgSize]
+	if !exists || precalcedChecksum == nil {
+		payloadMsgSize := keyPayloadMsgSize
+		// pre-calc checksum
+		c := p.precalcChecksum(payloadMsgSize)
+		p.buckets[payloadMsgSize] = &c
+		return c
+
+	}
+
+	// this will create a copy, we want a copy
+	return *precalcedChecksum
 }
 
 func (p *peDataAppenderDynamic) prepare(data, payloadHeader []byte, usePrePadding bool) (err error) {
@@ -25,8 +56,14 @@ func (p *peDataAppenderDynamic) prepare(data, payloadHeader []byte, usePrePaddin
 	if err != nil {
 		return
 	}
-	// we will calc the hash on the fly
-	p.log("DYNAMIC")
+
+	// pre calc buckets
+	for i := uint32(0); i < p.preInitFirst; i++ {
+		payloadMsgSize := p.payloadMessageStep * i
+		p.getChecksumLazy(payloadMsgSize)
+	}
+
+	p.log("DYNAMIC_BUCKETS")
 	return
 }
 
@@ -35,42 +72,31 @@ func (p *peDataAppenderDynamic) Append(w io.Writer, payload []byte) (err error) 
 		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), maxDynamicSize)
 		return
 	}
-
 	payloadMsgSize := calcPayloadMsgSize(uint32(len(payload)), p.payloadMessageStep)
-	// fmt.Println("payloadMsgSize: ", payloadMsgSize)
-	updateTableAndPreCalcChecksum := p.payloadMsgSize != payloadMsgSize
-	if updateTableAndPreCalcChecksum {
-		// fmt.Println("TABLE AND CHECKSUM UPDATE")
-		// from here on we do specific calls depending on the specific appender
-		p.calcPayloadMsgPaddings(payloadMsgSize)
-		p.updateCertificationTable()
-
-		// pre-calc checksum
-		// from 0 - PE checksum
-		p.checksum = checksum.PeChecksum{}
-		p.checksum.PartialChecksum(p.data[:p.checksumChunkIndex])
-		// from PE checksum - Data end
-		p.checksum.PartialChecksum(p.data[p.checksumChunkIndex+4:])
-	}
-
-	checksum := p.checksum.DeepCopy()
+	checksum := p.getChecksumLazy(payloadMsgSize)
 	// calc rest of the checksum
 	checksum.PartialChecksum(payload)
-	finalChecksum := checksum.FinalizeChecksum(p.finalSize())
+	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
+	finalChecksum := checksum.FinalizeChecksum(finalN)
 
-	err = p.append(w, payload, finalChecksum)
+	err = p.append(w, payload, finalChecksum, checksum.newCertTableLength, finalN)
 	return
 }
 
 // TODO fix it
-func (p *peDataAppenderDynamic) FileSize(len int) int {
-	_ = len
-	return p.finalSize()
+func (p *peDataAppenderDynamic) FileSize(l int) int {
+	payloadMsgSize := calcPayloadMsgSize(uint32(l), p.payloadMessageStep)
+	checksum := p.getChecksumLazy(payloadMsgSize)
+	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
+	return finalN
 }
 
 func NewPEDataAppenderDynamic(originalData []byte) (ret PeDataAppender, err error) {
-	p := peDataAppenderDynamic{}
-	p.payloadMessageStep = uint32(math.Pow(2, 8))
+	p := peDataAppenderDynamic{
+		buckets:      make(map[uint32]*precalcedChecksum),
+		preInitFirst: 9,
+	}
+	p.payloadMessageStep = uint32(math.Pow(2, 6))
 	err = p.prepare(originalData, payload.APPEND_HEADER, UsePrePadding)
 	if err != nil {
 		return

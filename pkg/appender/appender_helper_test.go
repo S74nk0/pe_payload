@@ -19,7 +19,6 @@ var newFunctions = []struct {
 	name string
 	f    func(originalData []byte) (ret PeDataAppender, err error)
 }{
-	{"NewPEDataAppenderFixed", NewPEDataAppenderFixed},
-	{"NewPEDataAppenderDynamic", NewPEDataAppenderDynamic},
-	{"NewPEDataAppenderDynamicBuckets", NewPEDataAppenderDynamicBuckets},
+	{"Fixed", NewPEDataAppenderFixed},
+	{"Dynamic", NewPEDataAppenderDynamic},
 }

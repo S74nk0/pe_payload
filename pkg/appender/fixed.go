@@ -3,7 +3,6 @@ package appender
 import (
 	"fmt"
 	"io"
-	"pe_payload/pkg/checksum"
 	"pe_payload/pkg/payload"
 )
 
@@ -11,7 +10,7 @@ type peDataAppenderFixed struct {
 	peDataAppender
 
 	// base checksum
-	checksum checksum.PeChecksum
+	checksum precalcedChecksum
 }
 
 func (p *peDataAppenderFixed) prepare(data, payloadHeader []byte, payloadMsgSize uint32, usePrePadding bool) (err error) {
@@ -19,42 +18,35 @@ func (p *peDataAppenderFixed) prepare(data, payloadHeader []byte, payloadMsgSize
 	if err != nil {
 		return
 	}
-	// from here on we do specific calls depending on the specific appender
-	p.calcPayloadMsgPaddings(payloadMsgSize)
-	p.updateCertificationTable()
-
 	// pre-calc checksum
 	p.checksum = p.precalcChecksum(payloadMsgSize)
-
-	// // pre-calc checksum
-	// // from 0 - PE checksum
-	// p.checksum = checksum.PeChecksum{}
-	// p.checksum.PartialChecksum(p.data[:p.checksumChunkIndex])
-	// // from PE checksum - Data end
-	// p.checksum.PartialChecksum(p.data[p.checksumChunkIndex+4:])
-
 	p.log("FIXED")
 	return
 }
 
 func (p *peDataAppenderFixed) Append(w io.Writer, payload []byte) (err error) {
-	if uint32(len(payload)) > p.payloadMsgSize {
-		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), p.payloadMsgSize)
+	if uint32(len(payload)) > p.checksum.payloadMsgSize {
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), p.checksum.payloadMsgSize)
 		return
 	}
 
-	checksum := p.checksum.DeepCopy()
+	// deep copy
+	checksum := p.checksum
 	// calc rest of the checksum
 	checksum.PartialChecksum(payload)
-	finalChecksum := checksum.FinalizeChecksum(p.finalSize())
+	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
+	finalChecksum := checksum.FinalizeChecksum(finalN)
 
-	err = p.append(w, payload, finalChecksum)
+	// fmt.Printf("Append equals %t", checksum == p.checksum)
+
+	err = p.append(w, payload, finalChecksum, checksum.newCertTableLength, finalN)
 	return
 }
 
-func (p *peDataAppenderFixed) FileSize(len int) int {
-	_ = len
-	return p.finalSize()
+func (p *peDataAppenderFixed) FileSize(l int) int {
+	_ = l
+	finalN := finalSize(int(p.checksum.paddingSize), int(p.checksum.payloadMsgSize), int(p.dataLen))
+	return finalN
 }
 
 func NewPEDataAppenderFixed(originalData []byte) (ret PeDataAppender, err error) {

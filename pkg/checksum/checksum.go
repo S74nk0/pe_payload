@@ -124,12 +124,6 @@ func (p *PeChecksum) Reset() {
 	p.checksum = 0
 }
 
-func (p *PeChecksum) DeepCopy() (ret PeChecksum) {
-	// this will deep copy
-	ret = *p
-	return
-}
-
 func CalcCheckSum(data []byte, PECheckSumIndex uint32) uint32 {
 	c := PeChecksum{}
 	c.PartialChecksum(data[:PECheckSumIndex])
