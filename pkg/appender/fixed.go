@@ -9,6 +9,9 @@ import (
 
 type peDataAppenderFixed struct {
 	peDataAppender
+
+	// base checksum
+	checksum checksum.PeChecksum
 }
 
 func (p *peDataAppenderFixed) prepare(data, payloadHeader []byte, payloadMsgSize uint32, usePrePadding bool) (err error) {
@@ -21,11 +24,14 @@ func (p *peDataAppenderFixed) prepare(data, payloadHeader []byte, payloadMsgSize
 	p.updateCertificationTable()
 
 	// pre-calc checksum
-	// from 0 - PE checksum
-	p.checksum = checksum.PeChecksum{}
-	p.checksum.PartialChecksum(p.data[:p.checksumChunkIndex])
-	// from PE checksum - Data end
-	p.checksum.PartialChecksum(p.data[p.checksumChunkIndex+4:])
+	p.checksum = p.precalcChecksum(payloadMsgSize)
+
+	// // pre-calc checksum
+	// // from 0 - PE checksum
+	// p.checksum = checksum.PeChecksum{}
+	// p.checksum.PartialChecksum(p.data[:p.checksumChunkIndex])
+	// // from PE checksum - Data end
+	// p.checksum.PartialChecksum(p.data[p.checksumChunkIndex+4:])
 
 	p.log("FIXED")
 	return

@@ -8,12 +8,16 @@ import (
 	"pe_payload/pkg/payload"
 )
 
+// TODO
+// THIS IMPLEMENTATION IS NOT THREAD SAFE SINCE IT MUTATES state on appending
 type peDataAppenderDynamic struct {
 	peDataAppender
 
 	// the smaller the value it will re-init cert table offsets and re-calc init checksum
 	// this should be the power of two
 	payloadMessageStep uint32
+	// base checksum
+	checksum checksum.PeChecksum
 }
 
 func (p *peDataAppenderDynamic) prepare(data, payloadHeader []byte, usePrePadding bool) (err error) {
