@@ -8,6 +8,8 @@ import (
 	"pe_payload/pkg/checksum"
 )
 
+var paddZero = []byte("\000")
+
 // TODO test true/false performance difference (I think true will yeild better performance)
 var UsePrePadding = true
 
@@ -39,13 +41,10 @@ type peDataAppender struct {
 	// this includes the payload message only without the header
 	payloadMsgSize    uint32
 	payloadHeaderSize uint32
-
-	// base checksum
-	checksum checksum.PeChecksum
 }
 
 func (p *peDataAppender) log(tag string) {
-	return
+	// return
 	fmt.Println()
 	fmt.Println(tag)
 	fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
@@ -62,13 +61,15 @@ func (p *peDataAppender) log(tag string) {
 }
 
 func (p *peDataAppender) finalSize() int {
-	// fmt.Printf("paddingSize %d. Len %d. payloadMsg %d \n", p.paddingSize, uint32(len(p.data)), p.payloadMsgSize)
 	r := p.paddingSize + uint32(len(p.data)) + p.payloadMsgSize
+
+	// fmt.Printf("paddingSize %d. Len %d. payloadMsg %d. FINAL %d \n", p.paddingSize, uint32(len(p.data)), p.payloadMsgSize, r)
+
 	return int(r)
 }
 
 // init functions
-func (p *peDataAppender) init01_findPEHeaderAndCalcConstants(data []byte, payloadHeader []byte) (err error) {
+func (p *peDataAppender) init01_findPEHeaderAndCalcConstants(data, payloadHeader []byte) (err error) {
 	peHeaderStart, peHeaderEnd, err := pe.Find_PE_Header(data)
 	if err != nil {
 		return
@@ -130,6 +131,35 @@ func (p *peDataAppender) updateCertificationTable() {
 	binary.LittleEndian.PutUint32(p.data[p.certTableReadOffsetIndex:], newCertTableLength)
 }
 
+func (p *peDataAppender) precalcChecksum(payloadMsgSize uint32) checksum.PeChecksum {
+	// from here on we do specific calls depending on the specific appender
+	const PAYLOAD_ALIGNMENT = 8
+	p.payloadMsgSize = payloadMsgSize
+	p.paddingSize = PAYLOAD_ALIGNMENT - ((p.payloadHeaderSize + payloadMsgSize) % PAYLOAD_ALIGNMENT)
+
+	// Update certification table
+	newCertTableLength := p.certTableReadLen + p.payloadHeaderSize + p.payloadMsgSize + p.paddingSize + p.prePaddingSize
+	newCertTableLengthBuff := make([]byte, 4, 4)
+	binary.LittleEndian.PutUint32(newCertTableLengthBuff, newCertTableLength)
+
+	// pre-calc checksum
+	// from 0 - PE checksum
+	checksum := checksum.PeChecksum{}
+	checksum.PartialChecksum(p.data[:p.checksumChunkIndex])
+	// skip checksum and continue to calc to first offset
+	checksum.PartialChecksum(p.data[p.checksumChunkIndex+4 : p.certTableLengthOffsetIndex])
+	// write new checksum table size at FIRST offset
+	checksum.PartialChecksum(newCertTableLengthBuff)
+	// write rest of data to second certTableLenght
+	checksum.PartialChecksum(p.data[p.certTableLengthOffsetIndex+4 : p.certTableReadOffsetIndex])
+	// write new checksum table size at SECOND offset
+	checksum.PartialChecksum(newCertTableLengthBuff)
+	// from PE checksum - Data end
+	checksum.PartialChecksum(p.data[p.certTableReadOffsetIndex+4:])
+
+	return checksum
+}
+
 func (p *peDataAppender) init(data, payloadHeader []byte, usePrePadding bool) (err error) {
 	err = p.init01_findPEHeaderAndCalcConstants(data, payloadHeader)
 	if err != nil {
@@ -166,13 +196,15 @@ func (p *peDataAppender) append(w io.Writer, payload []byte, finalChecksum uint3
 	}
 	finalN += n
 
-	paddingBytesSize := p.paddingSize + p.payloadMsgSize - uint32(len(payload))
-	paddingBytes := make([]byte, paddingBytesSize)
-	n, err = w.Write(paddingBytes)
-	if err != nil {
-		return
+	paddingBytesSize := p.finalSize() - finalN
+	// fmt.Printf("paddingBytesSize %d \n", paddingBytesSize)
+	for i := 0; i < paddingBytesSize; i++ {
+		n, err = w.Write(paddZero)
+		if err != nil {
+			return
+		}
+		finalN += n
 	}
-	finalN += n
 
 	if finalN != p.finalSize() {
 		// TODO this is probably an error
