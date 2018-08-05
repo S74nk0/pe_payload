@@ -22,6 +22,8 @@ func main() {
 	// handleErr(err)
 
 	payloadData := []byte("some data n1dfd")
+	// payloadData := make([]byte, 512)
+	// rand.Read(payloadData)
 
 	f, err := os.Create("new_golangOutStatic.exe")
 	peAppender, err := appender.NewPEDataAppenderFixed(vcbytes)
