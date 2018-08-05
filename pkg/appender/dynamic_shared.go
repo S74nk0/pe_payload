@@ -5,5 +5,12 @@ package appender
 const maxDynamicSize = 1000000 / 2
 
 func calcPayloadMsgSize(payloadMsgSize, payloadMessageStep uint32) uint32 {
-	return (payloadMsgSize / payloadMessageStep) + payloadMessageStep
+	mult := (payloadMsgSize / payloadMessageStep)
+	if (payloadMsgSize % payloadMessageStep) != 0 {
+		mult++
+	}
+	ret := mult * payloadMessageStep
+
+	// fmt.Printf("## (%d / %d) + %d = %d ##\n", payloadMsgSize, payloadMessageStep, payloadMessageStep, ret)
+	return ret
 }
