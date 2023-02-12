@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"testing"
 )
 
@@ -97,6 +98,7 @@ func BenchmarkAppendingDifferentLoad(b *testing.B) {
 			name := names[i]
 			var a PeDataAppender = appenders[i]
 			b.Run(fmt.Sprintf("%s_%d", name, len(payload)), func(b *testing.B) {
+				b.StartTimer()
 				for i := 0; i < b.N; i++ {
 					err := a.Append(nW, payload)
 					if err != nil {
@@ -104,6 +106,67 @@ func BenchmarkAppendingDifferentLoad(b *testing.B) {
 					}
 					// a.Append(nW, payload)
 				}
+				b.StopTimer()
+			})
+		}
+		// // reverse
+		// for i := len(appenders) - 1; i >= 0; i-- {
+		// 	name := names[i]
+		// 	var a PeDataAppender = appenders[i]
+		// 	b.Run(fmt.Sprintf("%s_R_%d", name, len(payload)), func(b *testing.B) {
+		// 		for i := 0; i < b.N; i++ {
+		// 			err := a.Append(nW, payload)
+		// 			if err != nil {
+		// 				b.Error(err)
+		// 			}
+		// 		}
+		// 	})
+		// }
+	}
+}
+
+func BenchmarkAppendingDifferentLoadPool(b *testing.B) {
+	vcbytes, err := ioutil.ReadFile("./testingFolder/VC_redist.x64.exe")
+	if err != nil {
+		b.Error(err)
+	}
+	// init appenders
+	appenders := make([]PeDataAppender, len(newFunctions), len(newFunctions))
+	names := make([]string, len(newFunctions), len(newFunctions))
+	for i, f := range newFunctions {
+		names[i] = f.name
+		appenders[i], err = f.f(vcbytes)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+	// prepare pool
+	uint32BufferPool := sync.Pool{
+		New: func() interface{} {
+			return make([]byte, 4, 4)
+		},
+	}
+	// prepare payload
+	payloadFull := make([]byte, 512)
+	rand.Read(payloadFull)
+	// benchmarking
+	for lenOff := 0; lenOff <= 512; lenOff += 51 {
+		payload := payloadFull[:lenOff]
+		for i := 0; i < len(appenders); i++ {
+			name := names[i]
+			var a PeDataAppender = appenders[i]
+			b.Run(fmt.Sprintf("%s_%d", name, len(payload)), func(b *testing.B) {
+				b.StartTimer()
+				for i := 0; i < b.N; i++ {
+					uint32Buffer := uint32BufferPool.Get().([]byte)
+					err := a.Append0Alloc(nW, payload, uint32Buffer)
+					uint32BufferPool.Put(uint32Buffer)
+					if err != nil {
+						b.Error(err)
+					}
+					// a.Append(nW, payload)
+				}
+				b.StopTimer()
 			})
 		}
 		// // reverse

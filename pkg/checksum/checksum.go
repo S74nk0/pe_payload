@@ -13,7 +13,7 @@ const checksumBufferSize = 4
 
 type peChecksumPart struct {
 	rem uint8
-	// array used because it behaves as value and this helps us with zero allocations as well
+	// 1 4byte allocation
 	b [checksumBufferSize]byte
 }
 

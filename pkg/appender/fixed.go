@@ -40,6 +40,27 @@ func (p *peDataAppenderFixed) Append(w io.Writer, payload []byte) (err error) {
 	// fmt.Printf("Append equals %t", checksum == p.checksum)
 
 	err = p.append(w, payload, finalChecksum, checksum.newCertTableLength, finalN)
+
+	return
+}
+
+func (p *peDataAppenderFixed) Append0Alloc(w io.Writer, payload, uint32Buffer []byte) (err error) {
+	if uint32(len(payload)) > p.checksum.payloadMsgSize {
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), p.checksum.payloadMsgSize)
+		return
+	}
+
+	// deep copy
+	checksum := p.checksum
+	// calc rest of the checksum
+	checksum.PartialChecksum(payload)
+	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
+	finalChecksum := checksum.FinalizeChecksum(finalN)
+
+	// fmt.Printf("Append equals %t", checksum == p.checksum)
+
+	err = p.append_0_alloc(w, payload, uint32Buffer, finalChecksum, checksum.newCertTableLength, finalN)
+
 	return
 }
 

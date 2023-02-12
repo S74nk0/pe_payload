@@ -79,7 +79,23 @@ func (p *peDataAppenderDynamic) Append(w io.Writer, payload []byte) (err error) 
 	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
 	finalChecksum := checksum.FinalizeChecksum(finalN)
 
-	err = p.append(w, payload, finalChecksum, checksum.newCertTableLength, finalN)
+	err = p.append(w, payload, finalChecksum, checksum.newCertTableLength, finalN) // fastest #1
+	return
+}
+
+func (p *peDataAppenderDynamic) Append0Alloc(w io.Writer, payload, uint32Buffer []byte) (err error) {
+	if uint32(len(payload)) > maxDynamicSize {
+		err = fmt.Errorf("cannot append paylod with size %d, MAX size is %d", len(payload), maxDynamicSize)
+		return
+	}
+	payloadMsgSize := calcPayloadMsgSize(uint32(len(payload)), p.payloadMessageStep)
+	checksum := p.getChecksumLazy(payloadMsgSize)
+	// calc rest of the checksum
+	checksum.PartialChecksum(payload)
+	finalN := finalSize(int(checksum.paddingSize), int(checksum.payloadMsgSize), int(p.dataLen))
+	finalChecksum := checksum.FinalizeChecksum(finalN)
+
+	err = p.append_0_alloc(w, payload, uint32Buffer, finalChecksum, checksum.newCertTableLength, finalN)
 	return
 }
 

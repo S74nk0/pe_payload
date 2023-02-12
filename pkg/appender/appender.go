@@ -16,6 +16,7 @@ var UsePrePadding = true
 
 type PeDataAppender interface {
 	Append(w io.Writer, payload []byte) (err error)
+	Append0Alloc(w io.Writer, payload, uint32Buffer []byte) (err error)
 	FileSize(payloadLen int) int
 }
 
@@ -179,8 +180,98 @@ func (p *peDataAppender) init(data, payloadHeader []byte, usePrePadding bool) (e
 }
 
 // this is like our own io.WriteTo, it makes only 1 allocation per call with 4bytes
+// TODO even though this makes one allocation it can hit the GC hard
 func (p *peDataAppender) append(w io.Writer, payload []byte, finalChecksum, newCertTableLength uint32, finalN int) (err error) {
 	uint32Buffer := make([]byte, 4, 4)
+	var writtenBytes int
+
+	// write until checksum
+	n, err := w.Write(p.data01)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += n
+	}
+
+	// write checksum
+	binary.LittleEndian.PutUint32(uint32Buffer, finalChecksum)
+	// err = binary.Write(w, binary.LittleEndian, finalChecksum)
+	n, err = w.Write(uint32Buffer)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += 4
+	}
+
+	// until first table size
+	n, err = w.Write(p.data02)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += n
+	}
+
+	binary.LittleEndian.PutUint32(uint32Buffer, newCertTableLength)
+	// err = binary.Write(w, binary.LittleEndian, newCertTableLength)
+	n, err = w.Write(uint32Buffer)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += 4
+	}
+
+	n, err = w.Write(p.data03)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += n
+	}
+
+	// no need to fill the buffer again
+	// binary.LittleEndian.PutUint32(uint32Buffer, newCertTableLength)
+	// err = binary.Write(w, binary.LittleEndian, newCertTableLength)
+	n, err = w.Write(uint32Buffer)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += 4
+	}
+
+	n, err = w.Write(p.data04)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += n
+	}
+
+	// write the payload
+	n, err = w.Write(payload)
+	if err != nil {
+		return
+	} else {
+		writtenBytes += n
+	}
+
+	paddingBytesSize := finalN - writtenBytes
+	// fmt.Printf("paddingBytesSize %d \n", paddingBytesSize)
+	for i := 0; i < paddingBytesSize; i++ {
+		n, err = w.Write(paddZero)
+		if err != nil {
+			return
+		}
+		writtenBytes += n
+	}
+
+	if writtenBytes != finalN {
+		// TODO this is probably an error
+		err = fmt.Errorf("writtenBytes differs from final write size (%d!=%d)", writtenBytes, finalN)
+		return
+	}
+
+	return
+}
+
+func (p *peDataAppender) append_0_alloc(w io.Writer, payload, uint32Buffer []byte, finalChecksum, newCertTableLength uint32, finalN int) (err error) {
 
 	var writtenBytes int
 
